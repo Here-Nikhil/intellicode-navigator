@@ -237,7 +237,7 @@ function ChatView({
                   className={cn(
                     "rounded-md border px-2 py-1 text-[11px] font-medium",
                     active
-                      ? "border-primary/50 bg-primary/10 text-primary"
+                      ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-card text-muted-foreground",
                   )}
                 >

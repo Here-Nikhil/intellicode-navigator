@@ -148,8 +148,10 @@ function seedWorkspaceA(): Workspace {
       }, createdAt: now - 490000 },
     ],
     prompts: [
-      { id: uid(), title: "Supabase multi-tenant schema", platform: "Claude Code", body: "Design a Supabase schema for a multi-tenant SaaS with organizations, memberships, and RLS policies isolating tenant data...", createdAt: now - 400000 },
-      { id: uid(), title: "TanStack Start + CF Workers deploy", platform: "Cursor", body: "Configure a TanStack Start app to deploy to Cloudflare Workers with edge-compatible bindings...", createdAt: now - 300000 },
+      { id: uid(), title: "Supabase multi-tenant schema", platform: "Claude Code", body: "Design a Supabase schema for a multi-tenant SaaS with organizations, memberships, and RLS policies isolating tenant data. Include tables for orgs, users, memberships (with role enum), and an events table partitioned by org_id. Add policies so every SELECT/INSERT/UPDATE is scoped via auth.uid() → membership → org_id...", createdAt: now - 400000 },
+      { id: uid(), title: "TanStack Start + CF Workers deploy", platform: "Cursor", body: "Configure a TanStack Start app to deploy to Cloudflare Workers with edge-compatible bindings. Wire up wrangler.toml, set nodejs_compat, add a Hyperdrive binding for Postgres, and update the SSR entry so server functions read env from the Worker runtime instead of process.env at module scope...", createdAt: now - 300000 },
+      { id: uid(), title: "Analytics dashboard shell UI", platform: "Lovable", body: "Build a responsive analytics dashboard shell with a collapsible sidebar, top KPI cards, a time-series chart (recharts), and a data table with sorting and pagination. Use shadcn/ui, dark mode only, and mock the data with a typed hook so the chart and table stay in sync...", createdAt: now - 200000 },
+      { id: uid(), title: "Time-series ingestion worker", platform: "Bolt", body: "Scaffold a Cloudflare Worker that receives batched analytics events over POST /ingest, validates them with Zod, and writes to a Timescale hypertable via a pooled Postgres connection. Include HMAC signature verification, per-tenant rate limiting with Durable Objects, and a dead-letter queue for failed batches...", createdAt: now - 100000 },
     ],
   };
 }
