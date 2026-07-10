@@ -123,7 +123,7 @@ const seedTools: Tool[] = [
 ];
 
 function seedWorkspaceA(): Workspace {
-  const now = Date.now();
+  const now = BASE_TS;
   return {
     id: uid(),
     name: "SaaS Analytics Platform",
@@ -155,7 +155,7 @@ function seedWorkspaceA(): Workspace {
 }
 
 function seedWorkspaceB(): Workspace {
-  const now = Date.now();
+  const now = BASE_TS;
   return {
     id: uid(),
     name: "Fitness Tracker Mobile",
@@ -183,7 +183,7 @@ function seedWorkspaceC(): Workspace {
     defaultModel: "claude-3.5-sonnet",
     messages: [],
     prompts: [
-      { id: uid(), title: "Astro content collections setup", platform: "Lovable", body: "Set up Astro content collections for a design system documentation site with MDX and typed frontmatter...", createdAt: Date.now() - 1000000 },
+      { id: uid(), title: "Astro content collections setup", platform: "Lovable", body: "Set up Astro content collections for a design system documentation site with MDX and typed frontmatter...", createdAt: BASE_TS - 1000000 },
     ],
   };
 }
@@ -194,7 +194,7 @@ const wsC = seedWorkspaceC();
 
 function mockDishaReply(userText: string, replyIndex: number): ChatMessage {
   const kind: MessageKind = ["text", "tool", "consensus"][replyIndex % 3] as MessageKind;
-  const now = Date.now();
+  const now = BASE_TS;
   if (kind === "tool") {
     return {
       id: uid(),
