@@ -34,6 +34,20 @@ function Dashboard() {
     navigate({ to: "/workspace/$id", params: { id } });
   };
 
+  if (workspaces.length === 0) {
+    return (
+      <AppShell
+        header={
+          <div className="flex items-center justify-between">
+            <h1 className="font-display text-base font-semibold">Dashboard</h1>
+          </div>
+        }
+      >
+        <DashboardEmptyState />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell
       header={
@@ -53,13 +67,9 @@ function Dashboard() {
           </p>
         </div>
 
-        {workspaces.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-12 text-center">
-            <Layers className="mx-auto size-8 text-muted-foreground" />
-            <p className="mt-3 text-sm text-muted-foreground">No workspaces yet.</p>
-            <Button onClick={handleCreate} className="mt-4" size="sm">Create your first</Button>
-          </div>
-        ) : (
+        {(
+          <></>
+        )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {workspaces.map((w) => {
               const meta = activityLabel[w.activity];
