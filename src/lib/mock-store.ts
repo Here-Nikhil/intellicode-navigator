@@ -95,7 +95,11 @@ type State = {
   updateUserName: (name: string) => void;
 };
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+// Deterministic ID sequence so SSR and client hydration match.
+let _uidCounter = 0;
+const uid = () => `id${(++_uidCounter).toString(36)}`;
+// Fixed base for seed timestamps (so SSR/client match); real actions still use Date.now().
+const BASE_TS = 1735689600000;
 
 const seedTools: Tool[] = [
   { id: uid(), name: "Cursor", category: "IDE", description: "AI-first code editor with deep repo understanding.", paid: true, url: "#" },
