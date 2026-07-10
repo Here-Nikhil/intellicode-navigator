@@ -119,10 +119,11 @@
 
   html {
     font-family: var(--font-body);
+    background-color: rgb(11 16 32);
   }
 
   body {
-    background-color: var(--color-background);
+    background-color: rgb(11 16 32);
     color: var(--color-foreground);
     font-family: var(--font-body);
   }
