@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { AppShell } from "@/components/disha/app-shell";
 import { useStore } from "@/lib/mock-store";
 import { Button } from "@/components/ui/button";
-import { CategoryPill, TechBadge } from "@/components/disha/chat-pieces";
-import { Plus, ArrowRight, MessageSquare, Layers } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { TechBadge } from "@/components/disha/chat-pieces";
+import { Plus, ArrowRight, ArrowUp, MessageSquare, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
