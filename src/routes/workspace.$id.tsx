@@ -4,9 +4,8 @@ import { AppShell } from "@/components/disha/app-shell";
 import { useStore, type Phase } from "@/lib/mock-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { ChatBubble, ConfidenceRing, TechBadge } from "@/components/disha/chat-pieces";
-import { ArrowUp, Sparkles } from "lucide-react";
+import { ArrowUp, Mic, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
