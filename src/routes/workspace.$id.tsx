@@ -5,7 +5,7 @@ import { useStore, type Phase } from "@/lib/mock-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatBubble, ConfidenceRing, TechBadge } from "@/components/disha/chat-pieces";
-import { ArrowUp, Mic, Sparkles } from "lucide-react";
+import { ArrowUp, Mic, Sparkles, Square } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -159,8 +159,16 @@ function ChatView({
   const [value, setValue] = useState("");
   const [thinking, setThinking] = useState(false);
   const [listening, setListening] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [levels, setLevels] = useState<number[]>(() => Array(16).fill(0.05));
   const scrollRef = useRef<HTMLDivElement>(null);
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const groqKey = useStore((s) => s.apiKeys.Groq.value);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -179,45 +187,114 @@ function ChatView({
     setThinking(true);
   };
 
-  const toggleMic = () => {
-    if (typeof window === "undefined") return;
-    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      toast.error("Voice input isn't supported in this browser.");
-      return;
-    }
-    if (listening) {
-      recognitionRef.current?.stop();
-      return;
-    }
-    const rec = new SR();
-    rec.lang = "en-US";
-    rec.interimResults = true;
-    rec.continuous = false;
-    let finalText = "";
-    rec.onresult = (event: any) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const chunk = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalText += chunk;
-        else interim += chunk;
-      }
-      setValue((prev) => {
-        const base = prev.replace(/\s*⟨listening…⟩\s*$/, "");
-        return (finalText || interim)
-          ? `${base}${base ? " " : ""}${finalText}${interim ? interim : ""}`.trim()
-          : base;
-      });
-    };
-    rec.onerror = () => {
-      setListening(false);
-      toast.error("Couldn't capture audio. Try again.");
-    };
-    rec.onend = () => setListening(false);
-    recognitionRef.current = rec;
-    setListening(true);
-    rec.start();
+  const stopVisualizer = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    analyserRef.current = null;
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setLevels(Array(16).fill(0.05));
   };
+
+  const startVisualizer = (stream: MediaStream) => {
+    const AC: typeof AudioContext =
+      (window as any).AudioContext || (window as any).webkitAudioContext;
+    const ctx = new AC();
+    const source = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 64;
+    source.connect(analyser);
+    audioCtxRef.current = ctx;
+    analyserRef.current = analyser;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const tick = () => {
+      const a = analyserRef.current;
+      if (!a) return;
+      a.getByteFrequencyData(data);
+      const bars = 16;
+      const step = Math.floor(data.length / bars);
+      const next: number[] = [];
+      for (let i = 0; i < bars; i++) {
+        let sum = 0;
+        for (let j = 0; j < step; j++) sum += data[i * step + j];
+        next.push(Math.min(1, sum / step / 180 + 0.05));
+      }
+      setLevels(next);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    tick();
+  };
+
+  const transcribeWithGroq = async (blob: Blob) => {
+    if (!groqKey) {
+      toast.error("Add your Groq API key in Settings to enable voice input.");
+      return;
+    }
+    setTranscribing(true);
+    try {
+      const form = new FormData();
+      form.append("file", blob, "recording.webm");
+      form.append("model", "whisper-large-v3-turbo");
+      const resp = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${groqKey}` },
+        body: form,
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+      const text = (data.text || "").trim();
+      if (text) setValue((prev) => (prev ? `${prev} ${text}` : text));
+      else toast.message("No speech detected.");
+    } catch (err: any) {
+      toast.error("Transcription failed. Check your Groq API key.");
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const toggleMic = async () => {
+    if (typeof window === "undefined") return;
+    if (listening) {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      toast.error("Microphone recording isn't supported in this browser.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mime = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+        ? "audio/mp4"
+        : "";
+      const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+        stopVisualizer();
+        setListening(false);
+        if (blob.size > 0) await transcribeWithGroq(blob);
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      startVisualizer(stream);
+      setListening(true);
+    } catch {
+      toast.error("Microphone permission denied.");
+      stopVisualizer();
+    }
+  };
+
+  useEffect(() => () => stopVisualizer(), []);
+
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] min-w-0">
@@ -247,15 +324,28 @@ function ChatView({
               className="min-h-[40px] max-h-40 resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             <Button
-              size="icon"
+              size={listening ? "default" : "icon"}
               variant={listening ? "default" : "ghost"}
               onClick={toggleMic}
-              className={cn(listening && "animate-pulse bg-disha text-white hover:bg-disha/90")}
+              disabled={transcribing}
+              className={cn(
+                listening && "bg-primary text-primary-foreground hover:bg-primary/90 px-3 gap-2",
+              )}
               aria-label={listening ? "Stop recording" : "Start voice input"}
               title={listening ? "Stop recording" : "Voice input"}
             >
-              <Mic className="size-4" />
+              {listening ? (
+                <>
+                  <Waveform levels={levels} />
+                  <Square className="size-3 fill-current" />
+                </>
+              ) : transcribing ? (
+                <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Mic className="size-4" />
+              )}
             </Button>
+
             <Button size="icon" onClick={handleSend} disabled={!value.trim()}>
               <ArrowUp className="size-4" />
             </Button>
@@ -322,6 +412,20 @@ function ChatView({
         </div>
       </aside>
     </div>
+  );
+}
+
+function Waveform({ levels }: { levels: number[] }) {
+  return (
+    <span className="flex h-5 items-center gap-[2px]">
+      {levels.map((v, i) => (
+        <span
+          key={i}
+          className="w-[2px] rounded-full bg-primary-foreground/90"
+          style={{ height: `${Math.max(10, v * 100)}%`, transition: "height 60ms linear" }}
+        />
+      ))}
+    </span>
   );
 }
 
