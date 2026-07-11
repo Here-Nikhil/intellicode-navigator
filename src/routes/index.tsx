@@ -29,8 +29,8 @@ function Dashboard() {
   const createWorkspace = useStore((s) => s.createWorkspace);
   const navigate = useNavigate();
 
-  const handleCreate = () => {
-    const id = createWorkspace("New workspace");
+  const handleCreate = async () => {
+    const id = await createWorkspace("New workspace");
     navigate({ to: "/workspace/$id", params: { id } });
   };
 
