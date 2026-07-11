@@ -157,16 +157,66 @@ function ChatView({
 }) {
   const workspace = useStore((s) => s.workspaces.find((w) => w.id === workspaceId))!;
   const [value, setValue] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [listening, setListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [workspace.messages.length]);
+  }, [workspace.messages.length, thinking]);
+
+  // Clear thinking when a Disha message arrives.
+  const lastMsg = workspace.messages[workspace.messages.length - 1];
+  useEffect(() => {
+    if (thinking && lastMsg?.author === "disha") setThinking(false);
+  }, [lastMsg?.id, thinking]);
 
   const handleSend = () => {
     if (!value.trim()) return;
     onSend(value.trim());
     setValue("");
+    setThinking(true);
+  };
+
+  const toggleMic = () => {
+    if (typeof window === "undefined") return;
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast.error("Voice input isn't supported in this browser.");
+      return;
+    }
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "en-US";
+    rec.interimResults = true;
+    rec.continuous = false;
+    let finalText = "";
+    rec.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += chunk;
+        else interim += chunk;
+      }
+      setValue((prev) => {
+        const base = prev.replace(/\s*⟨listening…⟩\s*$/, "");
+        return (finalText || interim)
+          ? `${base}${base ? " " : ""}${finalText}${interim ? interim : ""}`.trim()
+          : base;
+      });
+    };
+    rec.onerror = () => {
+      setListening(false);
+      toast.error("Couldn't capture audio. Try again.");
+    };
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
   };
 
   return (
@@ -178,11 +228,12 @@ function ChatView({
             {workspace.messages.map((m) => (
               <ChatBubble key={m.id} message={m} onGeneratePrompt={onGeneratePrompt} />
             ))}
+            {thinking && <ThinkingIndicator />}
           </div>
         </div>
         <div className="border-t border-border p-4 md:px-8">
           <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-xl border border-border bg-card p-2">
-            <Input
+            <Textarea
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => {
@@ -191,9 +242,20 @@ function ChatView({
                   handleSend();
                 }
               }}
-              placeholder="Ask Disha about your architecture..."
-              className="border-0 bg-transparent shadow-none focus-visible:ring-0"
+              rows={1}
+              placeholder="Ask Disha about your architecture... (Shift+Enter for new line)"
+              className="min-h-[40px] max-h-40 resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
+            <Button
+              size="icon"
+              variant={listening ? "default" : "ghost"}
+              onClick={toggleMic}
+              className={cn(listening && "animate-pulse bg-disha text-white hover:bg-disha/90")}
+              aria-label={listening ? "Stop recording" : "Start voice input"}
+              title={listening ? "Stop recording" : "Voice input"}
+            >
+              <Mic className="size-4" />
+            </Button>
             <Button size="icon" onClick={handleSend} disabled={!value.trim()}>
               <ArrowUp className="size-4" />
             </Button>
