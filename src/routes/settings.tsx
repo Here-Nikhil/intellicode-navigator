@@ -32,8 +32,8 @@ export const Route = createFileRoute("/settings")({
   component: SettingsPage,
 });
 
-const providers: ApiProvider[] = ["OpenAI", "Anthropic", "Google", "OpenRouter"];
-const models = ["claude-3.5-sonnet", "gpt-4o", "gemini-1.5-pro", "llama-3.1-70b"];
+const providers: ApiProvider[] = ["Groq", "OpenAI", "Anthropic", "Google", "OpenRouter"];
+const models = ["llama-3.3-70b", "claude-3.5-sonnet", "gpt-4o", "gemini-1.5-pro"];
 
 function SettingsPage() {
   return (
@@ -65,7 +65,7 @@ function ApiKeysSection() {
   const useAccountKeys = useStore((s) => s.useAccountKeys);
   const setUseAccountKeys = useStore((s) => s.setUseAccountKeys);
   const [drafts, setDrafts] = useState<Record<ApiProvider, string>>(
-    () => Object.fromEntries(providers.map((p) => [p, apiKeys[p].value])) as Record<ApiProvider, string>,
+    () => Object.fromEntries(providers.map((p) => [p, apiKeys[p]?.value ?? ""])) as Record<ApiProvider, string>,
   );
 
   return (
@@ -84,9 +84,9 @@ function ApiKeysSection() {
         {providers.map((p) => {
           const entry = apiKeys[p];
           const dot =
-            entry.status === "valid"
+            entry?.status === "valid"
               ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
-              : entry.status === "invalid"
+              : entry?.status === "invalid"
                 ? "bg-red-400"
                 : "bg-zinc-500";
           return (
@@ -97,16 +97,16 @@ function ApiKeysSection() {
               </div>
               <Input
                 type="password"
-                value={drafts[p]}
+                value={drafts[p] ?? ""}
                 onChange={(e) => setDrafts((d) => ({ ...d, [p]: e.target.value }))}
-                placeholder={entry.value ? "••••••••••••••••" : "sk-..."}
+                placeholder={entry?.value ? "••••••••••••••••" : "paste your key..."}
                 className="flex-1"
               />
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  saveApiKey(p, drafts[p]);
+                  saveApiKey(p, drafts[p] ?? "");
                   toast.success(`${p} key saved`);
                 }}
               >

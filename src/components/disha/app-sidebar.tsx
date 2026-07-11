@@ -46,12 +46,13 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   const activeId = useStore((s) => s.activeWorkspaceId);
   const setActive = useStore((s) => s.setActiveWorkspace);
   const createWorkspace = useStore((s) => s.createWorkspace);
+  const deleteWorkspace = useStore((s) => s.deleteWorkspace);
   const user = useStore((s) => s.user);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  const handleNew = () => {
-    const id = createWorkspace("New workspace");
+  const handleNew = async () => {
+    const id = await createWorkspace("New workspace");
     navigate({ to: "/workspace/$id", params: { id } });
     onNavigate?.();
   };
@@ -102,6 +103,17 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
               >
                 <span className={cn("size-2 shrink-0 rounded-full", activityDot[w.activity])} />
                 <span className="min-w-0 flex-1 truncate">{w.name}</span>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`Delete "${w.name}"? This cannot be undone.`)) {
+                      deleteWorkspace(w.id);
+                      navigate({ to: "/" });
+                    }
+                  }}
+                >
+                  ×
+                </span>
               </button>
             );
           })}
