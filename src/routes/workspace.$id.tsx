@@ -324,3 +324,24 @@ function ChatView({
     </div>
   );
 }
+
+function ThinkingIndicator() {
+  return (
+    <div className="flex gap-3">
+      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-disha/15 text-disha ring-1 ring-disha/30 animate-pulse">
+        <Sparkles className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1 border-l-2 border-disha/70 pl-4">
+        <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-disha">Disha</div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="flex gap-1">
+            <span className="size-1.5 rounded-full bg-disha animate-bounce [animation-delay:-0.3s]" />
+            <span className="size-1.5 rounded-full bg-disha animate-bounce [animation-delay:-0.15s]" />
+            <span className="size-1.5 rounded-full bg-disha animate-bounce" />
+          </span>
+          <span>Disha is thinking...</span>
+        </div>
+      </div>
+    </div>
+  );
+}
