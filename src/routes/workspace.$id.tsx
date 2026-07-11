@@ -324,15 +324,28 @@ function ChatView({
               className="min-h-[40px] max-h-40 resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             <Button
-              size="icon"
+              size={listening ? "default" : "icon"}
               variant={listening ? "default" : "ghost"}
               onClick={toggleMic}
-              className={cn(listening && "animate-pulse bg-disha text-white hover:bg-disha/90")}
+              disabled={transcribing}
+              className={cn(
+                listening && "bg-primary text-primary-foreground hover:bg-primary/90 px-3 gap-2",
+              )}
               aria-label={listening ? "Stop recording" : "Start voice input"}
               title={listening ? "Stop recording" : "Voice input"}
             >
-              <Mic className="size-4" />
+              {listening ? (
+                <>
+                  <Waveform levels={levels} />
+                  <Square className="size-3 fill-current" />
+                </>
+              ) : transcribing ? (
+                <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Mic className="size-4" />
+              )}
             </Button>
+
             <Button size="icon" onClick={handleSend} disabled={!value.trim()}>
               <ArrowUp className="size-4" />
             </Button>
