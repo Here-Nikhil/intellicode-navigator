@@ -124,10 +124,10 @@ function DashboardEmptyState() {
   const renameWorkspace = useStore((s) => s.renameWorkspace);
   const navigate = useNavigate();
 
-  const handleSubmit = (text: string) => {
+  const handleSubmit = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const id = createWorkspace(trimmed.slice(0, 48));
+    const id = await createWorkspace(trimmed.slice(0, 48));
     renameWorkspace(id, trimmed.slice(0, 48));
     sendMessage(id, trimmed);
     navigate({ to: "/workspace/$id", params: { id } });
