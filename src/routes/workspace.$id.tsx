@@ -115,7 +115,7 @@ function EmptyState({ workspaceId }: { workspaceId: string }) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               handleSubmit(value);
             }
@@ -124,7 +124,7 @@ function EmptyState({ workspaceId }: { workspaceId: string }) {
           className="min-h-[100px] resize-none border-0 bg-transparent px-3 py-2 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
         />
         <div className="flex items-center justify-between px-1 pt-2">
-          <span className="text-[11px] text-muted-foreground">⌘ + Enter to send</span>
+          <span className="text-[11px] text-muted-foreground">Enter to send · Shift+Enter for new line</span>
           <Button size="sm" onClick={() => handleSubmit(value)} disabled={!value.trim()}>
             Send <ArrowUp className="size-4" />
           </Button>
