@@ -4,9 +4,8 @@ import { AppShell } from "@/components/disha/app-shell";
 import { useStore, type Phase } from "@/lib/mock-store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { ChatBubble, ConfidenceRing, TechBadge } from "@/components/disha/chat-pieces";
-import { ArrowUp, Sparkles } from "lucide-react";
+import { ArrowUp, Mic, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -116,7 +115,7 @@ function EmptyState({ workspaceId }: { workspaceId: string }) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               handleSubmit(value);
             }
@@ -125,7 +124,7 @@ function EmptyState({ workspaceId }: { workspaceId: string }) {
           className="min-h-[100px] resize-none border-0 bg-transparent px-3 py-2 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
         />
         <div className="flex items-center justify-between px-1 pt-2">
-          <span className="text-[11px] text-muted-foreground">⌘ + Enter to send</span>
+          <span className="text-[11px] text-muted-foreground">Enter to send · Shift+Enter for new line</span>
           <Button size="sm" onClick={() => handleSubmit(value)} disabled={!value.trim()}>
             Send <ArrowUp className="size-4" />
           </Button>
@@ -158,16 +157,66 @@ function ChatView({
 }) {
   const workspace = useStore((s) => s.workspaces.find((w) => w.id === workspaceId))!;
   const [value, setValue] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [listening, setListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [workspace.messages.length]);
+  }, [workspace.messages.length, thinking]);
+
+  // Clear thinking when a Disha message arrives.
+  const lastMsg = workspace.messages[workspace.messages.length - 1];
+  useEffect(() => {
+    if (thinking && lastMsg?.author === "disha") setThinking(false);
+  }, [lastMsg?.id, thinking]);
 
   const handleSend = () => {
     if (!value.trim()) return;
     onSend(value.trim());
     setValue("");
+    setThinking(true);
+  };
+
+  const toggleMic = () => {
+    if (typeof window === "undefined") return;
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast.error("Voice input isn't supported in this browser.");
+      return;
+    }
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "en-US";
+    rec.interimResults = true;
+    rec.continuous = false;
+    let finalText = "";
+    rec.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const chunk = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += chunk;
+        else interim += chunk;
+      }
+      setValue((prev) => {
+        const base = prev.replace(/\s*⟨listening…⟩\s*$/, "");
+        return (finalText || interim)
+          ? `${base}${base ? " " : ""}${finalText}${interim ? interim : ""}`.trim()
+          : base;
+      });
+    };
+    rec.onerror = () => {
+      setListening(false);
+      toast.error("Couldn't capture audio. Try again.");
+    };
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
   };
 
   return (
@@ -179,11 +228,12 @@ function ChatView({
             {workspace.messages.map((m) => (
               <ChatBubble key={m.id} message={m} onGeneratePrompt={onGeneratePrompt} />
             ))}
+            {thinking && <ThinkingIndicator />}
           </div>
         </div>
         <div className="border-t border-border p-4 md:px-8">
           <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-xl border border-border bg-card p-2">
-            <Input
+            <Textarea
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={(e) => {
@@ -192,9 +242,20 @@ function ChatView({
                   handleSend();
                 }
               }}
-              placeholder="Ask Disha about your architecture..."
-              className="border-0 bg-transparent shadow-none focus-visible:ring-0"
+              rows={1}
+              placeholder="Ask Disha about your architecture... (Shift+Enter for new line)"
+              className="min-h-[40px] max-h-40 resize-none border-0 bg-transparent px-2 py-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
+            <Button
+              size="icon"
+              variant={listening ? "default" : "ghost"}
+              onClick={toggleMic}
+              className={cn(listening && "animate-pulse bg-disha text-white hover:bg-disha/90")}
+              aria-label={listening ? "Stop recording" : "Start voice input"}
+              title={listening ? "Stop recording" : "Voice input"}
+            >
+              <Mic className="size-4" />
+            </Button>
             <Button size="icon" onClick={handleSend} disabled={!value.trim()}>
               <ArrowUp className="size-4" />
             </Button>
@@ -260,6 +321,27 @@ function ChatView({
           </p>
         </div>
       </aside>
+    </div>
+  );
+}
+
+function ThinkingIndicator() {
+  return (
+    <div className="flex gap-3">
+      <div className="grid size-8 shrink-0 place-items-center rounded-full bg-disha/15 text-disha ring-1 ring-disha/30 animate-pulse">
+        <Sparkles className="size-4" />
+      </div>
+      <div className="min-w-0 flex-1 border-l-2 border-disha/70 pl-4">
+        <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-disha">Disha</div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="flex gap-1">
+            <span className="size-1.5 rounded-full bg-disha animate-bounce [animation-delay:-0.3s]" />
+            <span className="size-1.5 rounded-full bg-disha animate-bounce [animation-delay:-0.15s]" />
+            <span className="size-1.5 rounded-full bg-disha animate-bounce" />
+          </span>
+          <span>Disha is thinking...</span>
+        </div>
+      </div>
     </div>
   );
 }
