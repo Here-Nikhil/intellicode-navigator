@@ -415,6 +415,20 @@ function ChatView({
   );
 }
 
+function Waveform({ levels }: { levels: number[] }) {
+  return (
+    <span className="flex h-5 items-center gap-[2px]">
+      {levels.map((v, i) => (
+        <span
+          key={i}
+          className="w-[2px] rounded-full bg-primary-foreground/90"
+          style={{ height: `${Math.max(10, v * 100)}%`, transition: "height 60ms linear" }}
+        />
+      ))}
+    </span>
+  );
+}
+
 function ThinkingIndicator() {
   return (
     <div className="flex gap-3">
