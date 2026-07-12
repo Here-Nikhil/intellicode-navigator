@@ -40,10 +40,53 @@ function SettingsPage() {
     <AppShell header={<h1 className="font-display text-base font-semibold">Settings</h1>}>
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 md:px-8">
         <ApiKeysSection />
+        <VoiceInputSection />
         <WorkspaceSection />
         <ProfileSection />
       </div>
     </AppShell>
+  );
+}
+
+function VoiceInputSection() {
+  const apiKeys = useStore((s) => s.apiKeys);
+  const voiceProvider = useStore((s) => s.voiceProvider);
+  const setVoiceProvider = useStore((s) => s.setVoiceProvider);
+  const configured = (["Groq", "OpenAI", "Google"] as const).filter((p) => apiKeys[p]?.value?.trim());
+
+  return (
+    <SectionCard
+      title="Voice Input"
+      description="Choose which transcription provider to use for the microphone in chat."
+    >
+      {configured.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+          No transcription-capable keys configured. Add a Groq, OpenAI, or Google key above to enable voice input.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          <Label className="text-sm">Preferred provider</Label>
+          <Select
+            value={voiceProvider}
+            onValueChange={(v) => {
+              setVoiceProvider(v as any);
+              toast.success(`Voice provider set to ${v === "auto" ? "Auto" : v}`);
+            }}
+          >
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">Auto (Groq → OpenAI → Google)</SelectItem>
+              {configured.map((p) => (
+                <SelectItem key={p} value={p}>{p}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Groq uses whisper-large-v3-turbo. OpenAI uses whisper-1. Google uses Cloud Speech-to-Text.
+          </p>
+        </div>
+      )}
+    </SectionCard>
   );
 }
 

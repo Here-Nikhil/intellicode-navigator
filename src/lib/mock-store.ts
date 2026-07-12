@@ -75,6 +75,16 @@ export type Tool = {
 
 export type ApiProvider = "OpenAI" | "Anthropic" | "Google" | "OpenRouter" | "Groq";
 export type ApiKeyStatus = "unset" | "valid" | "invalid";
+export type VoiceProvider = "Groq" | "OpenAI" | "Google";
+
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "user";
+  status: "active" | "suspended";
+  joinedAt: number;
+};
 
 type State = {
   user: { name: string; email: string; role: "admin" | "user"; provider: string };
@@ -83,6 +93,8 @@ type State = {
   tools: Tool[];
   apiKeys: Record<ApiProvider, { value: string; status: ApiKeyStatus }>;
   useAccountKeys: boolean;
+  voiceProvider: VoiceProvider | "auto";
+  adminUsers: AdminUser[];
 
   createWorkspace: (name?: string) => Promise<string>;
   setActiveWorkspace: (id: string) => void;
@@ -93,6 +105,12 @@ type State = {
   addPrompt: (workspaceId: string, prompt: Omit<Prompt, "id" | "createdAt">) => void;
   saveApiKey: (provider: ApiProvider, value: string) => void;
   setUseAccountKeys: (v: boolean) => void;
+  setVoiceProvider: (v: VoiceProvider | "auto") => void;
+  approveTool: (id: string) => void;
+  rejectTool: (id: string) => void;
+  suspendUser: (id: string) => void;
+  activateUser: (id: string) => void;
+  deleteUser: (id: string) => void;
   updateUserName: (name: string) => void;
   loadWorkspaces: () => Promise<void>;
 };
@@ -207,6 +225,20 @@ export const useStore = create<State>((set, get) => ({
     Groq: { value: "", status: "unset" },
   },
   useAccountKeys: true,
+  voiceProvider: "auto",
+  adminUsers: [
+    { id: uid(), name: "Aarav Sharma", email: "aarav@disha.dev", role: "admin", status: "active", joinedAt: BASE_TS - 30 * 86400000 },
+    { id: uid(), name: "Priya Menon", email: "priya@acme.co", role: "user", status: "active", joinedAt: BASE_TS - 12 * 86400000 },
+    { id: uid(), name: "Liam O'Connor", email: "liam@northbeam.dev", role: "user", status: "active", joinedAt: BASE_TS - 5 * 86400000 },
+    { id: uid(), name: "Yuki Tanaka", email: "yuki@studio.jp", role: "user", status: "suspended", joinedAt: BASE_TS - 2 * 86400000 },
+  ],
+
+  setVoiceProvider: (v) => set({ voiceProvider: v }),
+  approveTool: (id) => set((s) => ({ tools: s.tools.map((t) => (t.id === id ? { ...t, pending: false } : t)) })),
+  rejectTool: (id) => set((s) => ({ tools: s.tools.filter((t) => t.id !== id) })),
+  suspendUser: (id) => set((s) => ({ adminUsers: s.adminUsers.map((u) => (u.id === id ? { ...u, status: "suspended" } : u)) })),
+  activateUser: (id) => set((s) => ({ adminUsers: s.adminUsers.map((u) => (u.id === id ? { ...u, status: "active" } : u)) })),
+  deleteUser: (id) => set((s) => ({ adminUsers: s.adminUsers.filter((u) => u.id !== id) })),
 
   loadWorkspaces: async () => {
     try {
