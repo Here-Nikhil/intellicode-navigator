@@ -130,7 +130,7 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
       <nav className="px-3">
         <div className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Navigate</div>
         <div className="space-y-0.5">
-          {navLinks.map((l) => {
+          {[...navLinks, ...(user.role === "admin" ? [adminLink] : [])].map((l) => {
             const active =
               l.to === "/"
                 ? pathname === "/"
