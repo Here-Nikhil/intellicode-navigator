@@ -6,3 +6,5 @@ httpx>=0.28.0
 cryptography>=43.0.0
 python-dotenv>=1.0.1
 pydantic>=2.10.0
+clerk-backend-api>=6.0.0
+svix>=1.0.0
