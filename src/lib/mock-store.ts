@@ -75,6 +75,16 @@ export type Tool = {
 
 export type ApiProvider = "OpenAI" | "Anthropic" | "Google" | "OpenRouter" | "Groq";
 export type ApiKeyStatus = "unset" | "valid" | "invalid";
+export type VoiceProvider = "Groq" | "OpenAI" | "Google";
+
+export type AdminUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "user";
+  status: "active" | "suspended";
+  joinedAt: number;
+};
 
 type State = {
   user: { name: string; email: string; role: "admin" | "user"; provider: string };
@@ -83,6 +93,8 @@ type State = {
   tools: Tool[];
   apiKeys: Record<ApiProvider, { value: string; status: ApiKeyStatus }>;
   useAccountKeys: boolean;
+  voiceProvider: VoiceProvider | "auto";
+  adminUsers: AdminUser[];
 
   createWorkspace: (name?: string) => Promise<string>;
   setActiveWorkspace: (id: string) => void;
@@ -93,6 +105,12 @@ type State = {
   addPrompt: (workspaceId: string, prompt: Omit<Prompt, "id" | "createdAt">) => void;
   saveApiKey: (provider: ApiProvider, value: string) => void;
   setUseAccountKeys: (v: boolean) => void;
+  setVoiceProvider: (v: VoiceProvider | "auto") => void;
+  approveTool: (id: string) => void;
+  rejectTool: (id: string) => void;
+  suspendUser: (id: string) => void;
+  activateUser: (id: string) => void;
+  deleteUser: (id: string) => void;
   updateUserName: (name: string) => void;
   loadWorkspaces: () => Promise<void>;
 };
