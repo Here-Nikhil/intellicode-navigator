@@ -13,6 +13,7 @@ import {
   Menu,
   Sparkles,
   Settings2,
+  ShieldCheck,
 } from "lucide-react";
 
 function LogoMark({ className }: { className?: string }) {
@@ -34,6 +35,8 @@ const navLinks = [
   { to: "/prompts", label: "Prompt Library", icon: BookText },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
+
+const adminLink = { to: "/admin", label: "Admin", icon: ShieldCheck } as const;
 
 const activityDot = {
   active: "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]",
