@@ -20,6 +20,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="user")
     auth_provider: Mapped[str] = mapped_column(String(100), default="local")
+    clerk_id: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     workspaces: Mapped[list["Workspace"]] = relationship(back_populates="user")

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
@@ -13,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_settings
 from database import Base, dispose_engine, get_db, get_engine, get_session_factory
-from models import Conversation, GeneratedPrompt, Message, Project, ToolRegistry, Workspace
+from models import Conversation, GeneratedPrompt, Message, Project, ToolRegistry, User, Workspace
 from orchestrator import orchestrate_message
 from providers import AIProviderClient
 from schemas import (
@@ -90,6 +91,60 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "disha-backend"}
+
+
+@app.post("/webhooks/clerk")
+async def clerk_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    payload = await request.body()
+    headers = dict(request.headers)
+
+    webhook_secret = os.environ.get("CLERK_WEBHOOK_SECRET", "")
+    if webhook_secret:
+        from svix.webhooks import Webhook
+        try:
+            wh = Webhook(webhook_secret)
+            event = wh.verify(payload, headers)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid webhook signature")
+    else:
+        event = json.loads(payload)
+
+    event_type = event.get("type")
+    data = event.get("data", {})
+
+    if event_type == "user.created":
+        clerk_id = data.get("id")
+        email = data.get("email_addresses", [{}])[0].get("email_address", "")
+        name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip() or email
+
+        result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+        existing = result.scalar_one_or_none()
+        if not existing:
+            result2 = await db.execute(select(User).where(User.email == email))
+            existing_email = result2.scalar_one_or_none()
+            if existing_email:
+                existing_email.clerk_id = clerk_id
+                existing_email.auth_provider = "clerk"
+            else:
+                new_user = User(
+                    email=email,
+                    name=name,
+                    role="user",
+                    auth_provider="clerk",
+                    clerk_id=clerk_id,
+                )
+                db.add(new_user)
+        await db.flush()
+
+    elif event_type == "user.deleted":
+        clerk_id = data.get("id")
+        result = await db.execute(select(User).where(User.clerk_id == clerk_id))
+        user = result.scalar_one_or_none()
+        if user:
+            await db.delete(user)
+        await db.flush()
+
+    return {"status": "ok"}
 
 
 @app.post("/workspaces", response_model=WorkspaceResponse)
