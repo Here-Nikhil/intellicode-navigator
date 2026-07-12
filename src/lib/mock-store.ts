@@ -225,6 +225,20 @@ export const useStore = create<State>((set, get) => ({
     Groq: { value: "", status: "unset" },
   },
   useAccountKeys: true,
+  voiceProvider: "auto",
+  adminUsers: [
+    { id: uid(), name: "Aarav Sharma", email: "aarav@disha.dev", role: "admin", status: "active", joinedAt: BASE_TS - 30 * 86400000 },
+    { id: uid(), name: "Priya Menon", email: "priya@acme.co", role: "user", status: "active", joinedAt: BASE_TS - 12 * 86400000 },
+    { id: uid(), name: "Liam O'Connor", email: "liam@northbeam.dev", role: "user", status: "active", joinedAt: BASE_TS - 5 * 86400000 },
+    { id: uid(), name: "Yuki Tanaka", email: "yuki@studio.jp", role: "user", status: "suspended", joinedAt: BASE_TS - 2 * 86400000 },
+  ],
+
+  setVoiceProvider: (v) => set({ voiceProvider: v }),
+  approveTool: (id) => set((s) => ({ tools: s.tools.map((t) => (t.id === id ? { ...t, pending: false } : t)) })),
+  rejectTool: (id) => set((s) => ({ tools: s.tools.filter((t) => t.id !== id) })),
+  suspendUser: (id) => set((s) => ({ adminUsers: s.adminUsers.map((u) => (u.id === id ? { ...u, status: "suspended" } : u)) })),
+  activateUser: (id) => set((s) => ({ adminUsers: s.adminUsers.map((u) => (u.id === id ? { ...u, status: "active" } : u)) })),
+  deleteUser: (id) => set((s) => ({ adminUsers: s.adminUsers.filter((u) => u.id !== id) })),
 
   loadWorkspaces: async () => {
     try {
