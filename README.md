@@ -1,6 +1,33 @@
-# Disha Backend
+# Disha — AI Architecture Planning Assistant
 
-FastAPI backend for [Disha](https://github.com/Here-Nikhil/intellicode-navigator) — an AI architecture planning assistant. Handles workspaces, conversational AI orchestration, multi-model consensus, encrypted API key storage, tool registry, and prompt generation.
+Disha is a conversational AI assistant that helps developers plan software architecture, make tech stack decisions, and generate tool-specific prompts. Ask it "Should I use Vercel or Fly.io?" and it'll query multiple AI models in parallel, score their responses, and give you a reasoned recommendation.
+
+**Live Demo:** [dish-a.vercel.app](https://dish-a.vercel.app)
+
+---
+
+## What it does
+
+- Chat with an AI that understands software architecture decisions
+- Get consensus answers for trade-off questions (X vs Y) — powered by up to 3 AI models running in parallel
+- Generate platform-specific prompts for tools like Bolt, Lovable, Cursor, Vercel, Supabase, and more
+- Manage multiple project workspaces, each with their own conversation history and AI model preference
+- Bring your own API keys (Groq, OpenAI, Anthropic, Google) — stored encrypted, never exposed
+
+---
+
+## Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| Frontend | TypeScript, React, Vite, TanStack Start, shadcn/ui |
+| Backend | Python, FastAPI, Uvicorn |
+| Database | Neon PostgreSQL |
+| Auth | Clerk (JWT + webhooks) |
+| AI Providers | Groq, OpenAI, Anthropic, Google |
+| Deployment | Vercel (frontend), Railway (backend) |
+
+---
 
 ## Prerequisites
 
@@ -8,9 +35,11 @@ FastAPI backend for [Disha](https://github.com/Here-Nikhil/intellicode-navigator
 - A [Neon](https://neon.tech) PostgreSQL database
 - At least one AI provider API key (Groq, OpenAI, Anthropic, or Google) — via `.env` or the Settings UI
 
-## Quick start
+---
 
-### 1. Create a virtual environment
+## Quick Start
+
+### 1. Clone and set up the backend
 
 ```bash
 cd backend
@@ -21,70 +50,66 @@ python -m venv .venv
 
 # macOS / Linux
 source .venv/bin/activate
-```
 
-### 2. Install dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configure environment variables
+### 2. Configure environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and set:
-
 | Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | Neon PostgreSQL URL (`postgresql://...`) |
+|---|---|---|
+| `DATABASE_URL` | Yes | Neon PostgreSQL URL |
 | `MASTER_ENCRYPTION_KEY` | Yes | Secret for AES-256-GCM encryption of stored API keys |
 | `CLERK_SECRET_KEY` | Yes | Clerk secret key for JWT verification |
 | `CLERK_WEBHOOK_SECRET` | Yes | Clerk webhook signing secret |
 | `GROQ_ADMIN_KEY` | No | Server-side Groq key for admin operations |
 
-Generate a strong encryption key:
-
+Generate an encryption key:
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-### 4. Run the server
+### 3. Run the backend
 
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API is available at `http://localhost:8000`. Interactive docs: `http://localhost:8000/docs`.
+API available at `http://localhost:8000` · Docs at `http://localhost:8000/docs`
 
-Tables are created automatically on startup, and the tool registry is seeded with Cursor, Claude Code, Windsurf, Bolt, Lovable, Replit, Vercel, Fly.io, Cloudflare Workers, Supabase, Neon, PlanetScale, GitHub Copilot, and Emergence AI.
+### 4. Run the frontend
 
-> **Note:** VS Code must be run as Administrator on Windows. Use `\` not `/` in paths.
+```bash
+bun install
+bun dev
+```
 
-## Connect the frontend
+Frontend runs on `http://localhost:3000`. Set `VITE_API_URL=http://localhost:8000` in the frontend `.env` for local development.
 
-The frontend (TanStack Start on `localhost:3000`) expects this API at `http://localhost:8000`. Set `VITE_API_URL=http://localhost:8000` in the frontend `.env` for local testing.
+---
 
-## API overview
+## API Overview
 
 ### Workspaces
 
 | Method | Path | Description |
-|--------|------|-------------|
+|---|---|---|
 | `POST` | `/workspaces` | Create a workspace |
 | `GET` | `/workspaces` | List workspaces |
 | `PATCH` | `/workspaces/{id}` | Rename or update default model |
 | `DELETE` | `/workspaces/{id}` | Delete a workspace |
-| `POST` | `/workspaces/{id}/messages` | Send a message and receive Disha's response |
+| `POST` | `/workspaces/{id}/messages` | Send a message, get Disha's response |
 | `GET` | `/workspaces/{id}/messages` | Get conversation history |
-| `GET` | `/workspaces/{id}/stream?message=...` | SSE stream for AI responses |
+| `GET` | `/workspaces/{id}/stream?message=...` | SSE stream for real-time AI responses |
 
-### Tools & prompts
+### Tools & Prompts
 
 | Method | Path | Description |
-|--------|------|-------------|
+|---|---|---|
 | `GET` | `/tools` | List tool registry |
 | `POST` | `/tools/submit` | Submit a tool for admin review |
 | `POST` | `/tools/{id}/generate-prompt` | Generate a platform-specific prompt |
@@ -94,14 +119,14 @@ The frontend (TanStack Start on `localhost:3000`) expects this API at `http://lo
 ### Settings
 
 | Method | Path | Description |
-|--------|------|-------------|
+|---|---|---|
 | `POST` | `/settings/api-keys` | Save an encrypted API key |
 | `GET` | `/settings/api-keys` | List providers with masked keys |
 
 ### Admin
 
 | Method | Path | Description |
-|--------|------|-------------|
+|---|---|---|
 | `GET` | `/admin/tools/pending` | List tools pending approval |
 | `POST` | `/admin/tools/{id}/approve` | Approve a pending tool |
 | `DELETE` | `/admin/tools/{id}/reject` | Reject and delete a pending tool |
@@ -111,44 +136,43 @@ The frontend (TanStack Start on `localhost:3000`) expects this API at `http://lo
 
 Admin access requires Clerk metadata `{"role": "admin"}` and DB `role = 'admin'`.
 
+---
+
 ## Architecture
 
-### Orchestration layer
+### Orchestration Layer
 
-When a message arrives, Disha classifies intent:
+Every incoming message is classified before touching an LLM:
 
-1. **Pure greeting** (no project content) — handled locally without calling an AI provider
-2. **Navigation** — sidebar/settings queries answered locally
+1. **Pure greeting** — answered locally, no API call made
+2. **Navigation query** — sidebar/settings questions answered locally
 3. **Prompt request** — routed directly to prompt generation
-4. **Ambiguous engineering decisions** — triggers the consensus engine (up to 3 models in parallel)
-5. **Architecture / general** — routed to the user's configured model via the full Disha system prompt
+4. **Trade-off / ambiguous decision** — triggers the consensus engine
+5. **Architecture / general** — routed to the user's configured model with the full Disha system prompt
 
-Greetings mixed with project content (e.g. "hi, I want to build a SaaS app") are correctly routed to the LLM — the greeting is never used as the sole signal.
+Mixed messages ("hi, I want to build a SaaS") are always routed to the LLM — the greeting is never used as the sole intent signal.
 
-### Quick reply options
+### Consensus Engine
 
-Disha can return structured `options` in its JSON response when it is genuinely presenting a choice to the user (e.g. "React or Vue?"). These are stored in the `messages` table and rendered as quick reply buttons on the frontend. Options are never scraped from bullet points — they only appear when the LLM explicitly outputs them.
+For "X vs Y" questions, Disha queries up to 3 configured AI providers simultaneously, scores each response, clusters similar recommendations, and returns:
+- Per-model recommendation with confidence score
+- A winning recommendation with summarized rationale
 
-### Consensus engine
+### Conversation Summarization
 
-For trade-off questions ("X vs Y", "which should I use"), Disha queries up to three configured providers simultaneously, scores each response, clusters similar recommendations, and returns:
+After every 20 messages, conversation history is compressed into a structured project summary (overview, requirements, tech stack, decisions, open questions) stored in the `projects` and `conversations` tables.
 
-- Per-model recommendation and confidence score
-- A winning recommendation with summary rationale
+### API Key Encryption
 
-### Conversation summarization
+User API keys are encrypted with AES-256-GCM before storage and decrypted only at request time. The master key never leaves the server environment.
 
-After every 20 messages, conversation history is compressed into a structured project summary stored in the `projects` and `conversations` tables (overview, requirements, tech stack, decisions, open questions).
+### Quick Reply Options
 
-### API key encryption
+Disha returns structured `options` in its JSON response when genuinely presenting a choice. These render as quick-reply buttons on the frontend — they are never scraped from bullet points.
 
-User API keys are encrypted with **AES-256-GCM** before storage. Keys are decrypted only at request time when calling provider APIs. The master key never leaves the server environment.
+---
 
-### System prompt
-
-Disha's personality and conversation flow are controlled by `backend/prompts/system_prompt.txt`. This file can be edited without redeploying — changes take effect on the next server restart.
-
-## SSE streaming example
+## SSE Streaming
 
 ```javascript
 const source = new EventSource(
@@ -165,26 +189,36 @@ source.addEventListener("consensus", (e) => {
 });
 
 source.addEventListener("done", (e) => {
-  // done payload includes: message_id, kind, tool, consensus, generated_prompt, quick_reply_options
   console.log("done", JSON.parse(e.data));
   source.close();
 });
 ```
 
-## Database schema
+---
 
-Tables: `users`, `workspaces`, `conversations`, `messages`, `projects`, `api_keys`, `tool_registry`, `generated_prompts`.
+## Database Schema
 
-The `messages` table includes a `quick_reply_options` JSONB column storing structured follow-up choices returned by the LLM.
+8 tables: `users`, `workspaces`, `conversations`, `messages`, `projects`, `api_keys`, `tool_registry`, `generated_prompts`
 
-## Production
+The `messages` table includes a `quick_reply_options` JSONB column for structured follow-up choices.
 
-Deployed on Railway. Environment variables are set via Railway's dashboard. The Neon database is shared between local and production — run migrations carefully.
+---
 
-For production, run with multiple workers behind a reverse proxy:
+## Deployment
 
+- **Frontend:** Vercel
+- **Backend:** Railway (set env vars via Railway dashboard)
+- **Database:** Neon PostgreSQL (shared between local and production — run migrations carefully)
+
+Production backend:
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-Never commit `.env` to version control.
+---
+
+## Development Notes
+
+- The tool registry is seeded on startup with 14 tools: Cursor, Claude Code, Windsurf, Bolt, Lovable, Replit, Vercel, Fly.io, Cloudflare Workers, Supabase, Neon, PlanetScale, GitHub Copilot, and Emergence AI
+- Disha's personality is controlled by `backend/prompts/system_prompt.txt` — editable without redeployment
+- Never commit `.env` to version control
